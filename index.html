@@ -11,15 +11,13 @@
         input { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #222; color: white; margin: 5px; }
         button { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; background: #3498db; color: white; font-weight: bold; margin: 5px; }
         
-        /* 搜索建议 */
         .search-wrap { position: relative; width: 320px; margin: 20px 0; }
-        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; border-top: none; z-index: 10; }
+        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; border-top: none; z-index: 10; max-height: 200px; overflow-y: auto; }
         .s-item { padding: 10px; cursor: pointer; text-align: left; border-bottom: 1px solid #333; }
         .s-item:hover { background: #333; }
 
-        /* 猜测表格 */
         .grid { display: grid; grid-template-columns: repeat(5, 100px); gap: 8px; margin-top: 10px; }
-        .cell { height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.85em; font-weight: bold; text-align: center; padding: 4px; }
+        .cell { height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.85em; font-weight: bold; text-align: center; padding: 4px; overflow: hidden; }
         .green { background: var(--green); color: white; }
         .yellow { background: var(--yellow); color: black; }
         .red { background: var(--red); color: white; }
@@ -53,48 +51,65 @@
     </div>
 
     <script>
-        const API = 'https://mininet-vm.taildb667f.ts.net';
-        // 修正为你的仓库地址
+        // 注意：如果你的 Flask 没过 Nginx，通常需要加上 :5000 端口
+        const API = 'https://mininet-vm.taildb667f.ts.net:5000'; 
         const JSON_URL = 'https://raw.githubusercontent.com/MayIyask/fu18/main/players.json';
 
         let pool = [], answer = null, left = 10, over = false;
 
-        // 自动加载数据
         (async () => {
             try {
                 const r = await fetch(JSON_URL);
                 pool = await r.json();
                 document.getElementById('status').innerText = `✅ 题库已就绪 (${pool.length} 人)`;
-            } catch(e) { document.getElementById('status').innerText = "❌ 题库加载失败"; }
+            } catch(e) { 
+                document.getElementById('status').innerText = "❌ 题库加载失败"; 
+                console.error(e);
+            }
         })();
 
         async function startMode(m) {
-            if(!pool.length) return;
+            if(!pool.length) return alert("题库尚未加载完毕");
+            
             if(m === 'local') {
                 answer = pool[Math.floor(Math.random()*pool.length)];
                 initUI("🕹️ 单机练习");
             } else if(m === 'create') {
-                const r = await fetch(`${API}/create_room`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({players: pool})
-                });
-                const d = await r.json();
-                alert("房间号: " + d.room);
-                answer = await fetchAnswer(d.room);
-                initUI("🏠 联机 (房号: "+d.room+")");
+                try {
+                    const r = await fetch(`${API}/create_room`, {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({players: pool})
+                    });
+                    const d = await r.json();
+                    if(!d.room) throw new Error("创建失败");
+                    
+                    alert("房间号: " + d.room);
+                    answer = await fetchAnswer(d.room);
+                    if(!answer) return alert("获取房间答案失败");
+                    initUI("🏠 联机 (房号: "+d.room+")");
+                } catch(e) {
+                    alert("连接服务器失败，请检查 API 地址及 5000 端口");
+                }
             } else {
                 const rid = document.getElementById('ridIn').value;
+                if(!rid) return alert("请输入房号");
                 answer = await fetchAnswer(rid);
-                if(!answer) return alert("房间不存在");
+                if(!answer) return alert("房间不存在或已过期");
                 initUI("🏠 联机 (房号: "+rid+")");
             }
         }
 
         async function fetchAnswer(rid) {
             try {
+                // 这里确保路径与后端一致：/get_room_answer
                 const r = await fetch(`${API}/get_room_answer?room=${rid}`);
-                return r.ok ? await r.json() : null;
-            } catch(e) { return null; }
+                if(!r.ok) return null;
+                return await r.json();
+            } catch(e) { 
+                console.error(e);
+                return null; 
+            }
         }
 
         function initUI(txt) {
@@ -121,7 +136,7 @@
             const res = {
                 name: p.name === answer.name ? 'green' : 'red',
                 team: p.team === answer.team ? 'green' : 'red',
-                cont: p.country === answer.country ? 'green' : (p.cont === answer.cont ? 'yellow' : 'red'),
+                cont: p.country === answer.country ? 'green' : (p.region === answer.region ? 'yellow' : 'red'),
                 age: p.age === answer.age ? 'green' : (Math.abs(p.age - answer.age) <= 3 ? 'yellow' : 'red'),
                 role: p.role === answer.role ? 'green' : 'red'
             };
