@@ -4,53 +4,78 @@
     <meta charset="UTF-8">
     <title>CS2 ProGuesser</title>
     <style>
-        :root { --green: #4caf50; --yellow: #ffeb3b; --red: #f44336; --dark: #121212; }
-        body { background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        :root { --green: #4caf50; --yellow: #ffeb3b; --red: #f44336; --dark: #121212; --blue: #3498db; }
+        body { background: var(--dark); color: white; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .hidden { display: none; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; text-align: center; border: 1px solid #333; width: 350px; }
-        input { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #222; color: white; margin: 5px; box-sizing: border-box; }
-        button { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; background: #3498db; color: white; font-weight: bold; margin: 5px; }
         
-        .search-wrap { position: relative; width: 320px; margin: 20px 0; }
-        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; z-index: 10; }
-        .s-item { padding: 12px; cursor: pointer; text-align: left; border-bottom: 1px solid #333; }
+        /* 菜单卡片 */
+        .card { background: #1e1e1e; padding: 30px; border-radius: 16px; text-align: center; border: 1px solid #333; width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input { padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; margin: 8px 0; width: 100%; box-sizing: border-box; }
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        button { padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-main { background: var(--blue); color: white; width: 100%; }
+        .btn-sub { background: #333; color: #ccc; flex: 1; }
+        .btn-sub:hover { background: #444; }
+
+        /* 游戏界面 */
+        #game { width: 100%; max-width: 600px; display: flex; flex-direction: column; align-items: center; }
+        .status-bar { background: #252525; padding: 15px; border-radius: 10px; width: 100%; margin-bottom: 20px; display: flex; justify-content: space-around; font-size: 0.9em; border: 1px solid #333; }
+        .room-tag { color: var(--blue); font-weight: bold; }
+
+        /* 搜索联想 */
+        .search-wrap { position: relative; width: 100%; margin-bottom: 20px; }
+        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; border-radius: 8px; z-index: 100; top: 55px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.8); }
+        .s-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #333; text-align: left; }
         .s-item:hover { background: #333; }
 
-        .grid { display: grid; grid-template-columns: repeat(5, 100px); gap: 8px; margin-top: 10px; }
-        .cell { height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
-        .arrow { font-size: 1.2em; margin-top: 2px; }
+        /* 结果格 */
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; margin-top: 10px; }
+        .cell { aspect-ratio: 1/1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.85em; font-weight: bold; text-align: center; padding: 5px; animation: flip 0.6s ease-out; }
+        .arrow { font-size: 1.4em; line-height: 1; }
         .green { background: var(--green); color: white; }
         .yellow { background: var(--yellow); color: black; }
         .red { background: var(--red); color: white; }
+        
+        @keyframes flip { from { transform: rotateX(90deg); opacity: 0; } to { transform: rotateX(0deg); opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div id="menu" class="card">
-        <h1>🎮 CS2 ProGuesser</h1>
-        <input type="text" id="username" placeholder="你的昵称 (可选)" value="游客" style="width: 80%;">
-        <p id="status" style="font-size: 0.8em; color: #888;">正在加载题库...</p>
+        <h1 style="margin-bottom: 5px;">ProGuesser</h1>
+        <p style="color: #666; font-size: 0.8em; margin-bottom: 20px;">CS2 职业选手知识竞赛</p>
         
-        <button onclick="startMode('local')" style="background: #2ecc71; width: 80%;">🕹️ 单机模式</button>
-        <div style="margin: 15px 0; color: #444;">———— 联机 ————</div>
-        <input type="text" id="ridIn" placeholder="房号" style="width: 80px;">
-        <button onclick="startMode('join')">加入</button>
-        <button onclick="startMode('create')">创建</button>
+        <input type="text" id="username" placeholder="输入昵称" value="游客">
+        
+        <button class="btn-main" style="background: var(--green); margin-bottom: 15px;" onclick="startMode('local')">🕹️ 单机练习模式</button>
+        
+        <div style="color: #444; font-size: 0.8em; margin: 10px 0;">多人对战</div>
+        <button class="btn-main" onclick="startMode('create')">✨ 创建并自动加入房间</button>
+        
+        <div class="btn-group">
+            <input type="text" id="ridIn" placeholder="房号" style="margin:0; flex: 1.5;">
+            <button class="btn-sub" style="flex: 1;" onclick="startMode('join')">加入房间</button>
+        </div>
+        
+        <p id="status" style="margin-top: 20px; font-size: 0.75em; color: #555;">正在连接数据源...</p>
     </div>
 
     <div id="game" class="hidden">
-        <h3 id="modeInfo">模式</h3>
-        <p>玩家: <span id="curUser">游客</span> | 剩余机会: <span id="chances">10</span></p>
+        <div class="status-bar">
+            <div>模式: <span id="modeDisplay" class="room-tag">-</span></div>
+            <div>选手: <span id="curUser" style="color: #aaa;">-</span></div>
+            <div>机会: <span id="chances" style="color: var(--red); font-weight: bold;">10</span></div>
+        </div>
         
         <div class="search-wrap">
-            <input type="text" id="box" placeholder="输入选手 ID..." oninput="doSearch(this.value)" style="width: 100%;">
+            <input type="text" id="box" placeholder="搜索并选择选手..." oninput="doSearch(this.value)" autocomplete="off">
             <div id="suggBox"></div>
         </div>
 
-        <div class="grid" style="color: #666; font-size: 0.7em; text-align: center;">
+        <div class="grid" style="color: #555; font-size: 0.7em; text-align: center; aspect-ratio: auto;">
             <div>选手</div><div>队伍</div><div>地区</div><div>年龄</div><div>身份</div>
         </div>
-        <div id="history"></div>
+        <div id="history" style="width: 100%;"></div>
     </div>
 
     <script>
@@ -59,12 +84,13 @@
 
         let pool = [], answer = null, left = 10, over = false;
 
+        // 初始化加载
         (async () => {
             try {
                 const r = await fetch(JSON_URL);
                 pool = await r.json();
-                document.getElementById('status').innerText = `✅ 题库就绪 (${pool.length} 人)`;
-            } catch(e) { document.getElementById('status').innerText = "❌ 加载失败"; }
+                document.getElementById('status').innerText = `● 题库就绪 (${pool.length} 选手)`;
+            } catch(e) { document.getElementById('status').innerText = "○ 数据加载异常"; }
         })();
 
         async function startMode(m) {
@@ -74,23 +100,27 @@
 
             if(m === 'local') {
                 answer = pool[Math.floor(Math.random()*pool.length)];
-                initUI("🕹️ 单机练习");
+                initUI("单机练习");
             } else if(m === 'create') {
-                const r = await fetch(`${API}/create_room`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({players: pool, username: user})
-                });
-                const d = await r.json();
-                alert(`房间创建！房号: ${d.room}`);
-                const info = await fetchRoom(d.room);
-                answer = info.answer;
-                initUI(`🏠 联机 (房号: ${d.room})`);
+                document.getElementById('status').innerText = "正在创建房间...";
+                try {
+                    const r = await fetch(`${API}/create_room`, {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({players: pool, username: user})
+                    });
+                    const d = await r.json();
+                    // 核心修改：创建成功后直接获取答案并进入游戏
+                    const info = await fetchRoom(d.room);
+                    answer = info.answer;
+                    initUI(`房间 ${d.room}`);
+                } catch(e) { alert("服务器连接失败"); }
             } else {
                 const rid = document.getElementById('ridIn').value;
+                if(!rid) return;
                 const info = await fetchRoom(rid);
-                if(!info) return alert("房间不存在");
+                if(!info) return alert("房号不存在");
                 answer = info.answer;
-                initUI(`🏠 联机 (房号: ${rid})`);
+                initUI(`房间 ${rid}`);
             }
         }
 
@@ -104,7 +134,7 @@
         function initUI(txt) {
             document.getElementById('menu').classList.add('hidden');
             document.getElementById('game').classList.remove('hidden');
-            document.getElementById('modeInfo').innerText = txt;
+            document.getElementById('modeDisplay').innerText = txt;
         }
 
         function doSearch(v) {
@@ -124,8 +154,8 @@
             
             // 年龄箭头逻辑
             let ageHint = "";
-            if(p.age < answer.age) ageHint = " <span class='arrow'>↑</span>";
-            else if(p.age > answer.age) ageHint = " <span class='arrow'>↓</span>";
+            if(p.age < answer.age) ageHint = "<div class='arrow'>↑</div>";
+            else if(p.age > answer.age) ageHint = "<div class='arrow'>↓</div>";
 
             const res = {
                 name: p.name === answer.name ? 'green' : 'red',
@@ -138,19 +168,26 @@
             const row = document.createElement('div'); row.className = 'grid';
             const fields = [
                 {k:'name', v:p.name}, {k:'team', v:p.team}, 
-                {k:'cont', v:p.country}, {k:'age', v:p.age + ageHint}, {k:'role', v:p.role}
+                {k:'cont', v:p.country}, {k:'age', v:p.age, h: ageHint}, {k:'role', v:p.role}
             ];
 
             fields.forEach(f => {
                 const c = document.createElement('div'); c.className = 'cell ' + res[f.k];
-                c.innerHTML = `<span>${f.v}</span>`; 
+                c.innerHTML = `<span>${f.v}</span>${f.h || ''}`; 
                 row.appendChild(c);
             });
             document.getElementById('history').prepend(row);
 
             left--; document.getElementById('chances').innerText = left;
-            if(p.name === answer.name) { over = true; alert("🎯 猜对了！答案就是 " + answer.name); }
-            else if(left <= 0) { over = true; alert("💀 机会耗尽！答案是: " + answer.name); }
+            if(p.name === answer.name) { over = true; confetti(); alert("🎯 完美猜测！"); }
+            else if(left <= 0) { over = true; alert("💀 游戏结束！正确答案是: " + answer.name); }
+        }
+
+        // 简单的胜利小彩蛋
+        function confetti() {
+            document.body.style.transition = '0.5s';
+            document.body.style.background = '#0a2a0a';
+            setTimeout(() => { document.body.style.background = var(--dark); }, 1000);
         }
     </script>
 </body>
