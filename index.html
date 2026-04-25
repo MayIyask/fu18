@@ -1,31 +1,24 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>CS2 ProGuesser - 职业选手猜猜看</title>
+    <title>CS2 ProGuesser</title>
     <style>
-        :root { --green: #4caf50; --yellow: #ffd700; --red: #f44336; --bg: #121212; --panel: #1e1e1e; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        :root { --green: #4caf50; --yellow: #ffeb3b; --red: #f44336; --dark: #121212; }
+        body { background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .hidden { display: none; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; text-align: center; border: 1px solid #333; width: 350px; }
+        input { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #222; color: white; margin: 5px; box-sizing: border-box; }
+        button { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; background: #3498db; color: white; font-weight: bold; margin: 5px; }
         
-        /* UI组件 */
-        .menu-card { background: var(--panel); padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: center; }
-        input { padding: 12px; border-radius: 6px; border: 1px solid #444; background: #333; color: white; margin: 10px; }
-        button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-primary { background: #3498db; color: white; }
-        .btn-success { background: var(--green); color: white; }
-        
-        /* 搜索建议 */
-        .search-area { position: relative; width: 400px; margin: 20px 0; }
-        #searchBox { width: 100%; box-sizing: border-box; }
-        #suggBox { position: absolute; width: 100%; background: #2c3e50; border-radius: 0 0 8px 8px; z-index: 10; text-align: left; }
-        .sugg-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #3e4f5f; }
-        .sugg-item:hover { background: #34495e; }
+        .search-wrap { position: relative; width: 320px; margin: 20px 0; }
+        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; z-index: 10; }
+        .s-item { padding: 12px; cursor: pointer; text-align: left; border-bottom: 1px solid #333; }
+        .s-item:hover { background: #333; }
 
-        /* 结果展示 */
-        .grid { display: grid; grid-template-columns: repeat(5, 120px); gap: 10px; margin-top: 10px; }
-        .cell { height: 70px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 0.85em; text-align: center; padding: 5px; font-weight: bold; }
-        .label { font-size: 0.7em; color: #888; margin-bottom: 5px; }
+        .grid { display: grid; grid-template-columns: repeat(5, 100px); gap: 8px; margin-top: 10px; }
+        .cell { height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
+        .arrow { font-size: 1.2em; margin-top: 2px; }
         .green { background: var(--green); color: white; }
         .yellow { background: var(--yellow); color: black; }
         .red { background: var(--red); color: white; }
@@ -33,152 +26,131 @@
 </head>
 <body>
 
-    <div id="startMenu" class="menu-card">
+    <div id="menu" class="card">
         <h1>🎮 CS2 ProGuesser</h1>
-        <p>数据源状态: <span id="dataStatus">加载中...</span></p>
-        <hr style="border:0.5px solid #444; margin: 20px 0;">
-        <button class="btn-success" onclick="startGame('local')">🕹️ 本地单机游玩</button>
-        <div style="margin: 20px 0; color: #888;">——— 或者 ———</div>
-        <input type="text" id="ridInput" placeholder="输入房号加入">
-        <button class="btn-primary" onclick="startGame('join')">加入房间</button>
-        <button class="btn-primary" onclick="startGame('create')">创建房间</button>
+        <input type="text" id="username" placeholder="你的昵称 (可选)" value="游客" style="width: 80%;">
+        <p id="status" style="font-size: 0.8em; color: #888;">正在加载题库...</p>
+        
+        <button onclick="startMode('local')" style="background: #2ecc71; width: 80%;">🕹️ 单机模式</button>
+        <div style="margin: 15px 0; color: #444;">———— 联机 ————</div>
+        <input type="text" id="ridIn" placeholder="房号" style="width: 80px;">
+        <button onclick="startMode('join')">加入</button>
+        <button onclick="startMode('create')">创建</button>
     </div>
 
-    <div id="gameUI" class="hidden">
-        <h2 id="modeTitle">正在游玩</h2>
-        <div id="infoBar">剩余机会: <span id="chances">10</span></div>
+    <div id="game" class="hidden">
+        <h3 id="modeInfo">模式</h3>
+        <p>玩家: <span id="curUser">游客</span> | 剩余机会: <span id="chances">10</span></p>
         
-        <div class="search-area">
-            <input type="text" id="searchBox" placeholder="输入选手 ID..." oninput="handleSearch(this.value)">
+        <div class="search-wrap">
+            <input type="text" id="box" placeholder="输入选手 ID..." oninput="doSearch(this.value)" style="width: 100%;">
             <div id="suggBox"></div>
         </div>
 
-        <div class="grid" style="font-weight: normal; color: #888;">
+        <div class="grid" style="color: #666; font-size: 0.7em; text-align: center;">
             <div>选手</div><div>队伍</div><div>地区</div><div>年龄</div><div>身份</div>
         </div>
         <div id="history"></div>
     </div>
 
     <script>
-        const API_URL = 'https://mininet-vm.taildb667f.ts.net'; // 后端
-        const GITHUB_JSON = 'https://raw.githubusercontent.com/MayIyask/fu18/main/players.json';
-        
-        let playersPool = [];
-        let answer = null;
-        let chances = 10;
-        let isGameOver = false;
+        const API = 'https://mininet-vm.taildb667f.ts.net';
+        const JSON_URL = 'https://raw.githubusercontent.com/MayIyask/fu18/main/players.json';
 
-        // 1. 初始化：无论什么模式，先抓取 GitHub 数据
-        (async function init() {
+        let pool = [], answer = null, left = 10, over = false;
+
+        (async () => {
             try {
-                const res = await fetch(GITHUB_JSON);
-                playersPool = await res.json();
-                document.getElementById('dataStatus').innerText = `✅ 已就绪 (${playersPool.length}人)`;
-            } catch (e) {
-                document.getElementById('dataStatus').innerText = "❌ 数据加载失败";
-            }
+                const r = await fetch(JSON_URL);
+                pool = await r.json();
+                document.getElementById('status').innerText = `✅ 题库就绪 (${pool.length} 人)`;
+            } catch(e) { document.getElementById('status').innerText = "❌ 加载失败"; }
         })();
 
-        // 2. 模式选择逻辑
-        async function startGame(mode) {
-            if (playersPool.length === 0) return alert("等待数据加载...");
+        async function startMode(m) {
+            if(!pool.length) return;
+            const user = document.getElementById('username').value || "游客";
+            document.getElementById('curUser').innerText = user;
 
-            if (mode === 'local') {
-                answer = playersPool[Math.floor(Math.random() * playersPool.length)];
-                document.getElementById('modeTitle').innerText = "🕹️ 单机模式";
-            } else if (mode === 'create') {
-                const res = await fetch(`${API_URL}/create_room`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({players: playersPool})
+            if(m === 'local') {
+                answer = pool[Math.floor(Math.random()*pool.length)];
+                initUI("🕹️ 单机练习");
+            } else if(m === 'create') {
+                const r = await fetch(`${API}/create_room`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({players: pool, username: user})
                 });
-                const data = await res.json();
-                alert(`房间创建成功！房号: ${data.room}`);
-                answer = await getRoomAnswer(data.room);
-                document.getElementById('modeTitle').innerText = `🏠 联机模式 (房号: ${data.room})`;
-            } else if (mode === 'join') {
-                const rid = document.getElementById('ridInput').value;
-                answer = await getRoomAnswer(rid);
-                if (!answer) return alert("房间不存在");
-                document.getElementById('modeTitle').innerText = `🏠 联机模式 (房号: ${rid})`;
+                const d = await r.json();
+                alert(`房间创建！房号: ${d.room}`);
+                const info = await fetchRoom(d.room);
+                answer = info.answer;
+                initUI(`🏠 联机 (房号: ${d.room})`);
+            } else {
+                const rid = document.getElementById('ridIn').value;
+                const info = await fetchRoom(rid);
+                if(!info) return alert("房间不存在");
+                answer = info.answer;
+                initUI(`🏠 联机 (房号: ${rid})`);
             }
-
-            document.getElementById('startMenu').classList.add('hidden');
-            document.getElementById('gameUI').classList.remove('hidden');
         }
 
-        async function getRoomAnswer(rid) {
-            const res = await fetch(`${API_URL}/get_room_answer?room=${rid}`);
-            if (!res.ok) return null;
-            return await res.json();
+        async function fetchRoom(rid) {
+            try {
+                const r = await fetch(`${API}/get_room_info?room=${rid}`);
+                return r.ok ? await r.json() : null;
+            } catch(e) { return null; }
         }
 
-        // 3. 搜索与猜测逻辑
-        function handleSearch(val) {
-            const suggs = document.getElementById('suggBox');
-            suggs.innerHTML = '';
-            if (!val || isGameOver) return;
-            
-            const matches = playersPool.filter(p => p.name.toLowerCase().includes(val.toLowerCase())).slice(0, 5);
-            matches.forEach(m => {
-                const div = document.createElement('div');
-                div.className = 'sugg-item';
-                div.innerText = `${m.name} (${m.team})`;
-                div.onclick = () => submitGuess(m);
-                suggs.appendChild(div);
+        function initUI(txt) {
+            document.getElementById('menu').classList.add('hidden');
+            document.getElementById('game').classList.remove('hidden');
+            document.getElementById('modeInfo').innerText = txt;
+        }
+
+        function doSearch(v) {
+            const b = document.getElementById('suggBox'); b.innerHTML = '';
+            if(!v || over) return;
+            pool.filter(p => p.name.toLowerCase().includes(v.toLowerCase())).slice(0,5).forEach(p => {
+                const d = document.createElement('div');
+                d.className = 's-item'; d.innerText = `${p.name} (${p.team})`;
+                d.onclick = () => submit(p);
+                b.appendChild(d);
             });
         }
 
-        function submitGuess(guess) {
-            if (isGameOver) return;
+        function submit(p) {
             document.getElementById('suggBox').innerHTML = '';
-            document.getElementById('searchBox').value = '';
-
-            const result = compare(guess, answer);
-            renderRow(guess, result);
-
-            chances--;
-            document.getElementById('chances').innerText = chances;
-
-            if (guess.name === answer.name) {
-                isGameOver = true;
-                setTimeout(() => alert("🎯 恭喜！你猜对了答案！"), 100);
-            } else if (chances <= 0) {
-                isGameOver = true;
-                alert(`😭 机会用完了！正确答案是: ${answer.name}`);
-            }
-        }
-
-        function compare(g, a) {
-            return {
-                name: g.name === a.name ? 'green' : 'red',
-                team: g.team === a.team ? 'green' : 'red',
-                // 洲/国籍逻辑
-                cont: g.country === a.country ? 'green' : (g.cont === a.cont ? 'yellow' : 'red'),
-                // 年龄差距 <= 3
-                age: g.age === a.age ? 'green' : (Math.abs(g.age - a.age) <= 3 ? 'yellow' : 'red'),
-                // 身份
-                role: g.role === a.role ? 'green' : 'red'
-            };
-        }
-
-        function renderRow(g, clrs) {
-            const history = document.getElementById('history');
-            const row = document.createElement('div');
-            row.className = 'grid';
+            document.getElementById('box').value = '';
             
+            // 年龄箭头逻辑
+            let ageHint = "";
+            if(p.age < answer.age) ageHint = " <span class='arrow'>↑</span>";
+            else if(p.age > answer.age) ageHint = " <span class='arrow'>↓</span>";
+
+            const res = {
+                name: p.name === answer.name ? 'green' : 'red',
+                team: p.team === answer.team ? 'green' : 'red',
+                cont: p.country === answer.country ? 'green' : (p.cont === answer.cont ? 'yellow' : 'red'),
+                age: p.age === answer.age ? 'green' : (Math.abs(p.age - answer.age) <= 3 ? 'yellow' : 'red'),
+                role: p.role === answer.role ? 'green' : 'red'
+            };
+
+            const row = document.createElement('div'); row.className = 'grid';
             const fields = [
-                {k: 'name', v: g.name}, {k: 'team', v: g.team}, 
-                {k: 'cont', v: g.country}, {k: 'age', v: g.age}, {k: 'role', v: g.role}
+                {k:'name', v:p.name}, {k:'team', v:p.team}, 
+                {k:'cont', v:p.country}, {k:'age', v:p.age + ageHint}, {k:'role', v:p.role}
             ];
 
             fields.forEach(f => {
-                const c = document.createElement('div');
-                c.className = `cell ${clrs[f.k]}`;
-                c.innerText = f.v;
+                const c = document.createElement('div'); c.className = 'cell ' + res[f.k];
+                c.innerHTML = `<span>${f.v}</span>`; 
                 row.appendChild(c);
             });
-            history.prepend(row);
+            document.getElementById('history').prepend(row);
+
+            left--; document.getElementById('chances').innerText = left;
+            if(p.name === answer.name) { over = true; alert("🎯 猜对了！答案就是 " + answer.name); }
+            else if(left <= 0) { over = true; alert("💀 机会耗尽！答案是: " + answer.name); }
         }
     </script>
 </body>
