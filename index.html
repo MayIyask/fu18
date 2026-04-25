@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>CS2 ProGuesser - 职业选手猜猜看</title>
+    <style>
+        :root { --green: #4caf50; --yellow: #ffd700; --red: #f44336; --bg: #121212; --panel: #1e1e1e; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .hidden { display: none; }
+        
+        /* UI组件 */
+        .menu-card { background: var(--panel); padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: center; }
+        input { padding: 12px; border-radius: 6px; border: 1px solid #444; background: #333; color: white; margin: 10px; }
+        button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: var(--green); color: white; }
+        
+        /* 搜索建议 */
+        .search-area { position: relative; width: 400px; margin: 20px 0; }
+        #searchBox { width: 100%; box-sizing: border-box; }
+        #suggBox { position: absolute; width: 100%; background: #2c3e50; border-radius: 0 0 8px 8px; z-index: 10; text-align: left; }
+        .sugg-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #3e4f5f; }
+        .sugg-item:hover { background: #34495e; }
+
+        /* 结果展示 */
+        .grid { display: grid; grid-template-columns: repeat(5, 120px); gap: 10px; margin-top: 10px; }
+        .cell { height: 70px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 0.85em; text-align: center; padding: 5px; font-weight: bold; }
+        .label { font-size: 0.7em; color: #888; margin-bottom: 5px; }
+        .green { background: var(--green); color: white; }
+        .yellow { background: var(--yellow); color: black; }
+        .red { background: var(--red); color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="startMenu" class="menu-card">
+        <h1>🎮 CS2 ProGuesser</h1>
+        <p>数据源状态: <span id="dataStatus">加载中...</span></p>
+        <hr style="border:0.5px solid #444; margin: 20px 0;">
+        <button class="btn-success" onclick="startGame('local')">🕹️ 本地单机游玩</button>
+        <div style="margin: 20px 0; color: #888;">——— 或者 ———</div>
+        <input type="text" id="ridInput" placeholder="输入房号加入">
+        <button class="btn-primary" onclick="startGame('join')">加入房间</button>
+        <button class="btn-primary" onclick="startGame('create')">创建房间</button>
+    </div>
+
+    <div id="gameUI" class="hidden">
+        <h2 id="modeTitle">正在游玩</h2>
+        <div id="infoBar">剩余机会: <span id="chances">10</span></div>
+        
+        <div class="search-area">
+            <input type="text" id="searchBox" placeholder="输入选手 ID..." oninput="handleSearch(this.value)">
+            <div id="suggBox"></div>
+        </div>
+
+        <div class="grid" style="font-weight: normal; color: #888;">
+            <div>选手</div><div>队伍</div><div>地区</div><div>年龄</div><div>身份</div>
+        </div>
+        <div id="history"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://mininet-vm.taildb667f.ts.net'; // 后端
+        const GITHUB_JSON = 'https://raw.githubusercontent.com/你的用户名/你的仓库/main/players.json';
+        
+        let playersPool = [];
+        let answer = null;
+        let chances = 10;
+        let isGameOver = false;
+
+        // 1. 初始化：无论什么模式，先抓取 GitHub 数据
+        (async function init() {
+            try {
+                const res = await fetch(GITHUB_JSON);
+                playersPool = await res.json();
+                document.getElementById('dataStatus').innerText = `✅ 已就绪 (${playersPool.length}人)`;
+            } catch (e) {
+                document.getElementById('dataStatus').innerText = "❌ 数据加载失败";
+            }
+        })();
+
+        // 2. 模式选择逻辑
+        async function startGame(mode) {
+            if (playersPool.length === 0) return alert("等待数据加载...");
+
+            if (mode === 'local') {
+                answer = playersPool[Math.floor(Math.random() * playersPool.length)];
+                document.getElementById('modeTitle').innerText = "🕹️ 单机模式";
+            } else if (mode === 'create') {
+                const res = await fetch(`${API_URL}/create_room`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({players: playersPool})
+                });
+                const data = await res.json();
+                alert(`房间创建成功！房号: ${data.room}`);
+                answer = await getRoomAnswer(data.room);
+                document.getElementById('modeTitle').innerText = `🏠 联机模式 (房号: ${data.room})`;
+            } else if (mode === 'join') {
+                const rid = document.getElementById('ridInput').value;
+                answer = await getRoomAnswer(rid);
+                if (!answer) return alert("房间不存在");
+                document.getElementById('modeTitle').innerText = `🏠 联机模式 (房号: ${rid})`;
+            }
+
+            document.getElementById('startMenu').classList.add('hidden');
+            document.getElementById('gameUI').classList.remove('hidden');
+        }
+
+        async function getRoomAnswer(rid) {
+            const res = await fetch(`${API_URL}/get_room_answer?room=${rid}`);
+            if (!res.ok) return null;
+            return await res.json();
+        }
+
+        // 3. 搜索与猜测逻辑
+        function handleSearch(val) {
+            const suggs = document.getElementById('suggBox');
+            suggs.innerHTML = '';
+            if (!val || isGameOver) return;
+            
+            const matches = playersPool.filter(p => p.name.toLowerCase().includes(val.toLowerCase())).slice(0, 5);
+            matches.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'sugg-item';
+                div.innerText = `${m.name} (${m.team})`;
+                div.onclick = () => submitGuess(m);
+                suggs.appendChild(div);
+            });
+        }
+
+        function submitGuess(guess) {
+            if (isGameOver) return;
+            document.getElementById('suggBox').innerHTML = '';
+            document.getElementById('searchBox').value = '';
+
+            const result = compare(guess, answer);
+            renderRow(guess, result);
+
+            chances--;
+            document.getElementById('chances').innerText = chances;
+
+            if (guess.name === answer.name) {
+                isGameOver = true;
+                setTimeout(() => alert("🎯 恭喜！你猜对了答案！"), 100);
+            } else if (chances <= 0) {
+                isGameOver = true;
+                alert(`😭 机会用完了！正确答案是: ${answer.name}`);
+            }
+        }
+
+        function compare(g, a) {
+            return {
+                name: g.name === a.name ? 'green' : 'red',
+                team: g.team === a.team ? 'green' : 'red',
+                // 洲/国籍逻辑
+                cont: g.country === a.country ? 'green' : (g.cont === a.cont ? 'yellow' : 'red'),
+                // 年龄差距 <= 3
+                age: g.age === a.age ? 'green' : (Math.abs(g.age - a.age) <= 3 ? 'yellow' : 'red'),
+                // 身份
+                role: g.role === a.role ? 'green' : 'red'
+            };
+        }
+
+        function renderRow(g, clrs) {
+            const history = document.getElementById('history');
+            const row = document.createElement('div');
+            row.className = 'grid';
+            
+            const fields = [
+                {k: 'name', v: g.name}, {k: 'team', v: g.team}, 
+                {k: 'cont', v: g.country}, {k: 'age', v: g.age}, {k: 'role', v: g.role}
+            ];
+
+            fields.forEach(f => {
+                const c = document.createElement('div');
+                c.className = `cell ${clrs[f.k]}`;
+                c.innerText = f.v;
+                row.appendChild(c);
+            });
+            history.prepend(row);
+        }
+    </script>
+</body>
+</html>
