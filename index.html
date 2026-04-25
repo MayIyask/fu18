@@ -173,4 +173,48 @@
             };
 
             if(rid) {
-                await fetch(`${API}/
+                await fetch(`${API}/submit_guess`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({room: rid, username: myName, guess: diff})
+                });
+            } else {
+                localHistory.push({user: myName, data: diff});
+                renderHistory(localHistory);
+                if(diff.isCorrect) { alert("🎯 命中答案！"); location.reload(); }
+            }
+
+            chances--;
+            document.getElementById('chanceTag').innerText = chances;
+            if(chances <= 0 && !diff.isCorrect && !rid) {
+                alert("💀 次数耗尽！答案是: " + answer.name);
+                location.reload();
+            }
+        }
+
+        let localHistory = [];
+        function showUI(type, val) {
+            document.getElementById('menuUI').classList.add('hidden');
+            document.getElementById('waitUI').classList.add('hidden');
+            document.getElementById('gameUI').classList.add('hidden');
+            if(type === 'wait') {
+                document.getElementById('waitUI').classList.remove('hidden');
+                document.getElementById('waitRid').innerText = "房号: " + val;
+            } else {
+                document.getElementById('gameUI').classList.remove('hidden');
+                document.getElementById('gameHeader').innerText = val;
+            }
+        }
+
+        function handleSearch(v) {
+            const b = document.getElementById('suggBox'); b.innerHTML = '';
+            if(!v || over || chances <= 0 || !answer) return;
+            pool.filter(p => p.name.toLowerCase().includes(v.toLowerCase())).slice(0,5).forEach(p => {
+                const d = document.createElement('div');
+                d.className = 's-item'; d.innerText = p.name + " (" + p.team + ")";
+                d.onclick = () => { b.innerHTML = ''; document.getElementById('searchBox').value=''; submitGuess(p); };
+                b.appendChild(d);
+            });
+        }
+    </script>
+</body>
+</html>
