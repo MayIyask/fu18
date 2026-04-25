@@ -4,55 +4,65 @@
     <meta charset="UTF-8">
     <title>CS2 ProGuesser</title>
     <style>
-        :root { --green: #4caf50; --yellow: #ffeb3b; --red: #f44336; --dark: #121212; }
-        body { background: var(--dark); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        :root { --green: #4caf50; --yellow: #ffeb3b; --red: #f44336; --dark: #121212; --blue: #3498db; }
+        body { background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .hidden { display: none; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; text-align: center; border: 1px solid #333; }
-        input { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #222; color: white; margin: 5px; }
-        button { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; background: #3498db; color: white; font-weight: bold; margin: 5px; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; text-align: center; border: 1px solid #333; width: 350px; }
+        input { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #222; color: white; margin: 5px; box-sizing: border-box; }
+        button { padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; background: var(--blue); color: white; font-weight: bold; margin: 5px; }
         
         .search-wrap { position: relative; width: 320px; margin: 20px 0; }
-        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; border-top: none; z-index: 10; max-height: 200px; overflow-y: auto; }
-        .s-item { padding: 10px; cursor: pointer; text-align: left; border-bottom: 1px solid #333; }
+        #suggBox { position: absolute; width: 100%; background: #222; border: 1px solid #444; z-index: 10; max-height: 200px; overflow-y: auto; }
+        .s-item { padding: 12px; cursor: pointer; text-align: left; border-bottom: 1px solid #333; }
         .s-item:hover { background: #333; }
 
         .grid { display: grid; grid-template-columns: repeat(5, 100px); gap: 8px; margin-top: 10px; }
-        .cell { height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.85em; font-weight: bold; text-align: center; padding: 4px; overflow: hidden; }
+        .cell { height: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.85em; font-weight: bold; position: relative; }
+        .arrow { font-size: 1.2em; line-height: 1; }
         .green { background: var(--green); color: white; }
         .yellow { background: var(--yellow); color: black; }
         .red { background: var(--red); color: white; }
+        
+        /* 房号高亮显示 */
+        .room-badge { background: #444; padding: 2px 8px; border-radius: 4px; color: var(--blue); margin-left: 10px; font-size: 0.9em; border: 1px solid var(--blue); }
     </style>
 </head>
 <body>
 
     <div id="menu" class="card">
         <h1>🎮 CS2 ProGuesser</h1>
-        <p id="status">正在同步 GitHub 题库...</p>
-        <button onclick="startMode('local')" style="background: #2ecc71;">🕹️ 单机模式</button>
-        <hr style="border: 0.5px solid #333; margin: 20px 0;">
-        <input type="text" id="ridIn" placeholder="房号" style="width: 80px;">
-        <button onclick="startMode('join')">加入房间</button>
-        <button onclick="startMode('create')">创建房间</button>
+        <input type="text" id="username" placeholder="你的昵称" value="游客" style="width: 80%;">
+        <p id="status" style="font-size: 0.8em; color: #888;">同步数据中...</p>
+        
+        <button onclick="startMode('local')" style="background: #2ecc71; width: 80%;">🕹️ 单机模式</button>
+        <div style="margin: 15px 0; color: #444;">———— 联机 ————</div>
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <input type="text" id="ridIn" placeholder="房号" style="width: 70px;">
+            <button onclick="startMode('join')">加入</button>
+            <button onclick="startMode('create')">创建并进入</button>
+        </div>
     </div>
 
     <div id="game" class="hidden">
-        <h3 id="modeInfo">模式</h3>
-        <p>剩余机会: <span id="chances">10</span></p>
+        <div style="display: flex; align-items: center; justify-content: center;">
+            <h3 id="modeInfo" style="margin: 0;">模式</h3>
+            <span id="roomDisplay" class="hidden room-badge"></span>
+        </div>
+        <p>玩家: <span id="curUser">游客</span> | 剩余机会: <span id="chances">10</span></p>
         
         <div class="search-wrap">
             <input type="text" id="box" placeholder="输入选手 ID..." oninput="doSearch(this.value)" style="width: 100%;">
             <div id="suggBox"></div>
         </div>
 
-        <div class="grid" style="color: #666; font-size: 0.7em;">
+        <div class="grid" style="color: #666; font-size: 0.75em; text-align: center;">
             <div>选手</div><div>队伍</div><div>地区</div><div>年龄</div><div>身份</div>
         </div>
         <div id="history"></div>
     </div>
 
     <script>
-        // 注意：如果你的 Flask 没过 Nginx，通常需要加上 :5000 端口
-        const API = 'https://mininet-vm.taildb667f.ts.net:5000'; 
+        const API = 'https://mininet-vm.taildb667f.ts.net';
         const JSON_URL = 'https://raw.githubusercontent.com/MayIyask/fu18/main/players.json';
 
         let pool = [], answer = null, left = 10, over = false;
@@ -61,61 +71,59 @@
             try {
                 const r = await fetch(JSON_URL);
                 pool = await r.json();
-                document.getElementById('status').innerText = `✅ 题库已就绪 (${pool.length} 人)`;
-            } catch(e) { 
-                document.getElementById('status').innerText = "❌ 题库加载失败"; 
-                console.error(e);
-            }
+                document.getElementById('status').innerText = `✅ 题库就绪 (${pool.length} 人)`;
+            } catch(e) { document.getElementById('status').innerText = "❌ 加载失败"; }
         })();
 
         async function startMode(m) {
-            if(!pool.length) return alert("题库尚未加载完毕");
-            
+            if(!pool.length) return;
+            const user = document.getElementById('username').value || "游客";
+            document.getElementById('curUser').innerText = user;
+
             if(m === 'local') {
                 answer = pool[Math.floor(Math.random()*pool.length)];
-                initUI("🕹️ 单机练习");
+                initUI("🕹️ 单机练习", null);
             } else if(m === 'create') {
                 try {
                     const r = await fetch(`${API}/create_room`, {
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({players: pool})
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({players: pool, username: user})
                     });
                     const d = await r.json();
-                    if(!d.room) throw new Error("创建失败");
-                    
-                    alert("房间号: " + d.room);
-                    answer = await fetchAnswer(d.room);
-                    if(!answer) return alert("获取房间答案失败");
-                    initUI("🏠 联机 (房号: "+d.room+")");
-                } catch(e) {
-                    alert("连接服务器失败，请检查 API 地址及 5000 端口");
-                }
+                    // 创建完直接获取答案并进入
+                    const info = await fetchRoom(d.room);
+                    answer = info.answer;
+                    initUI("🏠 联机模式", d.room);
+                } catch(e) { alert("服务器连接失败"); }
             } else {
                 const rid = document.getElementById('ridIn').value;
                 if(!rid) return alert("请输入房号");
-                answer = await fetchAnswer(rid);
-                if(!answer) return alert("房间不存在或已过期");
-                initUI("🏠 联机 (房号: "+rid+")");
+                const info = await fetchRoom(rid);
+                if(!info) return alert("房间不存在或已过期");
+                answer = info.answer;
+                initUI("🏠 联机模式", rid);
             }
         }
 
-        async function fetchAnswer(rid) {
+        async function fetchRoom(rid) {
             try {
-                // 这里确保路径与后端一致：/get_room_answer
-                const r = await fetch(`${API}/get_room_answer?room=${rid}`);
-                if(!r.ok) return null;
-                return await r.json();
-            } catch(e) { 
-                console.error(e);
-                return null; 
-            }
+                const r = await fetch(`${API}/get_room_info?room=${rid}`);
+                return r.ok ? await r.json() : null;
+            } catch(e) { return null; }
         }
 
-        function initUI(txt) {
-            document.getElementById('menu').className = 'hidden';
-            document.getElementById('game').className = '';
-            document.getElementById('modeInfo').innerText = txt;
+        function initUI(title, rid) {
+            document.getElementById('menu').classList.add('hidden');
+            document.getElementById('game').classList.remove('hidden');
+            document.getElementById('modeInfo').innerText = title;
+            
+            const badge = document.getElementById('roomDisplay');
+            if(rid) {
+                badge.innerText = "房号: " + rid;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
         }
 
         function doSearch(v) {
@@ -123,7 +131,7 @@
             if(!v || over) return;
             pool.filter(p => p.name.toLowerCase().includes(v.toLowerCase())).slice(0,5).forEach(p => {
                 const d = document.createElement('div');
-                d.className = 's-item'; d.innerText = p.name + " (" + p.team + ")";
+                d.className = 's-item'; d.innerText = `${p.name} (${p.team})`;
                 d.onclick = () => submit(p);
                 b.appendChild(d);
             });
@@ -133,23 +141,33 @@
             document.getElementById('suggBox').innerHTML = '';
             document.getElementById('box').value = '';
             
+            let ageHint = "";
+            if(p.age < answer.age) ageHint = " <span class='arrow'>↑</span>";
+            else if(p.age > answer.age) ageHint = " <span class='arrow'>↓</span>";
+
             const res = {
                 name: p.name === answer.name ? 'green' : 'red',
                 team: p.team === answer.team ? 'green' : 'red',
-                cont: p.country === answer.country ? 'green' : (p.region === answer.region ? 'yellow' : 'red'),
+                cont: p.country === answer.country ? 'green' : (p.cont === answer.cont ? 'yellow' : 'red'),
                 age: p.age === answer.age ? 'green' : (Math.abs(p.age - answer.age) <= 3 ? 'yellow' : 'red'),
                 role: p.role === answer.role ? 'green' : 'red'
             };
 
             const row = document.createElement('div'); row.className = 'grid';
-            [{k:'name',v:p.name}, {k:'team',v:p.team}, {k:'cont',v:p.country}, {k:'age',v:p.age}, {k:'role',v:p.role}].forEach(f => {
+            const fields = [
+                {k:'name', v:p.name}, {k:'team', v:p.team}, 
+                {k:'cont', v:p.country}, {k:'age', v:p.age, h: ageHint}, {k:'role', v:p.role}
+            ];
+
+            fields.forEach(f => {
                 const c = document.createElement('div'); c.className = 'cell ' + res[f.k];
-                c.innerText = f.v; row.appendChild(c);
+                c.innerHTML = `<span>${f.v}</span>${f.h || ''}`; 
+                row.appendChild(c);
             });
             document.getElementById('history').prepend(row);
 
             left--; document.getElementById('chances').innerText = left;
-            if(p.name === answer.name) { over = true; alert("🎯 猜对了！"); }
+            if(p.name === answer.name) { over = true; alert("🎯 命中答案！你是懂选手的！"); }
             else if(left <= 0) { over = true; alert("💀 机会耗尽！答案是: " + answer.name); }
         }
     </script>
