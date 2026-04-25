@@ -11,53 +11,58 @@
         input { padding: 12px; border-radius: 6px; border: 1px solid #444; background: #222; color: white; margin: 8px 0; width: 100%; box-sizing: border-box; }
         button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; background: var(--blue); color: white; font-weight: bold; }
         
-        /* 左右布局容器 */
         #gameUI { width: 100%; max-width: 1000px; display: flex; flex-direction: column; align-items: center; }
         .battle-container { display: flex; width: 100%; gap: 20px; justify-content: center; }
         .side { flex: 1; min-width: 300px; max-width: 480px; }
-        .side-title { text-align: center; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 10px; font-size: 0.9em; border: 1px solid #333; }
+        .side-title { text-align: center; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 10px; font-size: 0.9em; border: 1px solid #333; color: #aaa; }
+        .side-title b { color: var(--blue); }
 
-        /* 表格样式 */
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 5px; }
-        .cell { height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-align: center; overflow: hidden; }
+        .cell { height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 0.75em; font-weight: bold; text-align: center; }
         .green { background: var(--green); } .yellow { background: var(--yellow); color: black; } .red { background: var(--red); }
         
         .search-wrap { width: 100%; max-width: 400px; position: relative; margin: 20px 0; }
+        #searchBox:disabled { background: #111; cursor: not-allowed; color: #555; }
         #suggBox { position: absolute; width: 100%; background: #2c3e50; z-index: 100; border-radius: 0 0 8px 8px; }
         .s-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #3e4f5f; }
+        .header { font-size: 0.7em; color: #555; text-align: center; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
     <div id="menuUI" class="card">
         <h1>🎮 ProGuesser</h1>
-        <input type="text" id="username" placeholder="你的昵称" value="玩家">
+        <input type="text" id="username" placeholder="你的名字" value="玩家1">
         <button onclick="startMode('local')" style="background: var(--green); width: 100%;">🕹️ 单机模式</button>
-        <div style="margin:15px; color:#555">———— 1V1 ————</div>
-        <div style="display:flex; gap:5px"><input id="ridInput" placeholder="房号"><button onclick="startMode('join')">加入</button></div>
+        <div style="margin:15px; color:#555">———— 1V1 对战 ————</div>
+        <div style="display:flex; gap:5px"><input id="ridInput" placeholder="输入房号"><button onclick="startMode('join')">加入</button></div>
         <button onclick="startMode('create')" style="width:100%; margin-top:5px">🔥 创建对战</button>
     </div>
 
     <div id="waitUI" class="hidden card">
         <h2 id="waitRid">房号: ----</h2>
-        <p>正在等待对手...</p>
-        <button onclick="location.reload()">取消</button>
+        <p>正在等待对手加入...</p>
+        <button onclick="location.reload()" style="background: #555">取消</button>
     </div>
 
     <div id="gameUI" class="hidden">
-        <div id="roomInfo" style="margin-bottom:10px; color:var(--blue)"></div>
+        <div id="roomTag" style="margin-bottom:10px; font-size: 0.9em; color: #666;"></div>
+        
         <div class="search-wrap">
             <input type="text" id="searchBox" placeholder="搜索选手..." oninput="handleSearch(this.value)">
             <div id="suggBox"></div>
+            <p id="lockMsg" style="color:var(--red); font-size:0.8em; margin-top:5px;" class="hidden">⚠️ 次数已用完，请等待对手完成...</p>
         </div>
 
         <div class="battle-container">
             <div class="side">
-                <div class="side-title">我的猜测 (剩余:<span id="chanceTag">10</span>)</div>
+                <div class="side-title"><b>我</b> (<span id="chanceTag">10</span> 次机会)</div>
+                <div class="grid header"><div>选手</div><div>队伍</div><div>地区</div><div>年龄</div><div>身份</div></div>
                 <div id="myHistory"></div>
             </div>
             <div class="side">
-                <div class="side-title">对方的进度</div>
+                <div class="side-title"><b id="oppNameDisplay">对手</b> 的进度</div>
+                <div class="grid header"><div>选手</div><div>队伍</div><div>地区</div><div>年龄</div><div>身份</div></div>
                 <div id="oppHistory"></div>
             </div>
         </div>
@@ -71,22 +76,24 @@
         (async () => { pool = await (await fetch(JSON_URL)).json(); })();
 
         async function startMode(mode) {
-            myName = document.getElementById('username').value || "匿名";
+            myName = document.getElementById('username').value.trim() || "匿名";
             if(mode === 'local') {
                 answer = pool[Math.floor(Math.random()*pool.length)];
-                showUI('game');
+                showUI('game', '本地练习');
             } else {
                 const isCreate = mode === 'create';
                 const body = isCreate ? {players: pool, username: myName} : {room: document.getElementById('ridInput').value, username: myName};
-                const r = await fetch(`${API}/${isCreate?'create_room':'join_room'}`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(body)
-                });
-                const d = await r.json();
-                if(!r.ok) return alert(d.msg);
-                rid = isCreate ? d.room : body.room;
-                showUI('wait', rid);
-                setInterval(sync, 3000);
+                try {
+                    const r = await fetch(`${API}/${isCreate?'create_room':'join_room'}`, {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body)
+                    });
+                    const d = await r.json();
+                    if(!r.ok) return alert(d.msg);
+                    rid = isCreate ? d.room : body.room;
+                    showUI('wait', rid);
+                    setInterval(sync, 3000);
+                } catch(e) { alert("服务器连接失败"); }
             }
         }
 
@@ -97,14 +104,19 @@
                 body: JSON.stringify({room: rid, username: myName})
             });
             const d = await r.json();
+
             if(d.status === 'closed') {
                 over = true;
-                if(d.reason === 'win') alert("📢 对局结束！\n有人命中了答案！\n正确选手是: " + d.answer.name);
-                else alert("⚠️ 提示: 房间已异常关闭 (对手离开或网络问题)");
+                if(d.reason === 'win') alert("🏁 比赛结束！有人猜中了答案！\n正确选手是: " + d.answer.name);
+                else if(d.reason === 'draw') alert("🤝 平局！双方次数均已用尽。\n正确选手是: " + d.answer.name);
+                else alert("⚠️ 房间已关闭 (对手离开)");
                 location.reload();
             } else if(d.status === 'playing') {
                 answer = d.answer;
                 showUI('game', rid);
+                // 更新对手名字
+                const opp = d.p_names.find(n => n !== myName);
+                if(opp) document.getElementById('oppNameDisplay').innerText = opp;
                 renderHistory(d.history);
             }
         }
@@ -114,25 +126,38 @@
             const oppBox = document.getElementById('oppHistory');
             myBox.innerHTML = ''; oppBox.innerHTML = '';
 
+            let myCount = 0;
             history.forEach(item => {
                 const isMe = item.user === myName;
+                if(isMe) myCount++;
                 const row = document.createElement('div');
                 row.className = 'grid';
                 
-                const fields = ['name', 'team', 'cont', 'age', 'role'];
-                fields.forEach(f => {
+                ['name', 'team', 'cont', 'age', 'role'].forEach(f => {
                     const c = document.createElement('div');
                     c.className = `cell ${item.data.colors[f]}`;
-                    // 如果不是我，且不是在单机模式，则打码
                     c.innerText = (isMe || rid === null) ? item.data.values[f] : "****";
                     row.appendChild(c);
                 });
 
                 if(isMe) myBox.prepend(row); else oppBox.prepend(row);
             });
+
+            // 实时同步本地次数
+            chances = 10 - myCount;
+            document.getElementById('chanceTag').innerText = Math.max(0, chances);
+            
+            // 如果次数用完，锁定输入
+            if(chances <= 0) {
+                document.getElementById('searchBox').disabled = true;
+                document.getElementById('searchBox').placeholder = "次数已耗尽，请等待...";
+                document.getElementById('lockMsg').classList.remove('hidden');
+            }
         }
 
         async function submitGuess(p) {
+            if(chances <= 0 || over) return;
+
             const diff = {
                 colors: {
                     name: p.name === answer.name ? 'green' : 'red',
@@ -151,16 +176,14 @@
                     body: JSON.stringify({room: rid, username: myName, guess: diff})
                 });
             } else {
-                // 单机模拟历史
                 localHistory.push({user: myName, data: diff});
                 renderHistory(localHistory);
+                if(diff.isCorrect) { alert("🎯 命中答案！"); location.reload(); }
+                if(localHistory.length >= 10) { alert("💀 次数耗尽！答案是: " + answer.name); location.reload(); }
             }
-
-            if(diff.isCorrect && !rid) { alert("🎯 命中答案！"); location.reload(); }
-            chances--; document.getElementById('chanceTag').innerText = chances;
         }
 
-        let localHistory = []; // 仅用于单机
+        let localHistory = [];
         function showUI(type, val) {
             document.getElementById('menuUI').classList.add('hidden');
             document.getElementById('waitUI').classList.add('hidden');
@@ -170,13 +193,13 @@
                 document.getElementById('waitRid').innerText = "房号: " + val;
             } else {
                 document.getElementById('gameUI').classList.remove('hidden');
-                if(val) document.getElementById('roomInfo').innerText = "正在对战 房号: " + val;
+                document.getElementById('roomTag').innerText = "当前房号: " + val;
             }
         }
 
         function handleSearch(v) {
             const b = document.getElementById('suggBox'); b.innerHTML = '';
-            if(!v || over || !answer) return;
+            if(!v || over || !answer || chances <= 0) return;
             pool.filter(p => p.name.toLowerCase().includes(v.toLowerCase())).slice(0,5).forEach(p => {
                 const d = document.createElement('div');
                 d.className = 's-item'; d.innerText = p.name;
