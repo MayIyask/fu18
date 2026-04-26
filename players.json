@@ -51,7 +51,7 @@
     {"name": "Spinx", "team": "MOUZ", "cont": "Europe", "country": "Israel", "age": 24, "role": "Rifler"},
     {"name": "huNter-", "team": "G2", "cont": "Europe", "country": "Bosnia", "age": 30, "role": "Rifler"},
     {"name": "NertZ", "team": "G2", "cont": "Europe", "country": "Israel", "age": 26, "role": "Rifler"},
-    {"name": "HeavyGod", "team": "G2", "cont": "Europe", "country": "Israel", "age": 23, "role": "Rifler"}
+    {"name": "HeavyGod", "team": "G2", "cont": "Europe", "country": "Israel", "age": 23, "role": "Rifler"},
     {"name": "SunPayus", "team": "G2", "cont": "Europe", "country": "Spain", "age": 26, "role": "AWPer"},
     {"name": "MATYS", "team": "G2", "cont": "Europe", "country": "Slovakia", "age": 24, "role": "Rifler"},
     {"name": "Graviti", "team": "3DMAX", "cont": "Europe", "country": "France", "age": 27, "role": "Rifler"},
@@ -73,7 +73,7 @@
     {"name": "kensizor", "team": "B8", "cont": "Europe", "country": "Ukraine", "age": 20, "role": "Rifler"},
     {"name": "esenthial", "team": "B8", "cont": "Europe", "country": "Ukraine", "age": 20, "role": "Rifler"},
     {"name": "alex666", "team": "B8", "cont": "Europe", "country": "Ukraine", "age": 24, "role": "Rifler"},
-    {"name": "s1zzi", "team": "B8", "cont": "Europe", "country": "Ukraine", "age": 16, "role": "AWPer"}
+    {"name": "s1zzi", "team": "B8", "cont": "Europe", "country": "Ukraine", "age": 16, "role": "AWPer"},
     {"name": "arT", "team": "Legacy", "cont": "South America", "country": "Brazil", "age": 29, "role": "Rifler"},
     {"name": "dumau", "team": "Legacy", "cont": "South America", "country": "Brazil", "age": 22, "role": "Rifler"},
     {"name": "latto", "team": "Legacy", "cont": "South America", "country": "Brazil", "age": 23, "role": "Rifler"},
